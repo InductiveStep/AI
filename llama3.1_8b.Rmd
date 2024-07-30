@@ -1,12 +1,12 @@
 ---
-title: "Trying out llama3.1:8b using R and Ollama"
+title: "Trying out Llama3.1 8B, using R and Ollama"
 author: "Andi Fugard"
 date: "30 July 2024"
 output:
-  html_document:
-    df_print: paged
   html_notebook:
     code_folding: none
+  html_document:
+    df_print: paged
 ---
 
 
@@ -24,7 +24,7 @@ library(tidyverse)
 library(beepr)
 ```
 
-Here the models I currently have loaded on Ollama:
+Here are the models I currently have loaded on Ollama:
 
 ```{r}
 list_models()
@@ -55,7 +55,7 @@ example_abstract <- "Recently, there has been considerable interest in large lan
 ```{r}
 title_abstract_prompt <- function(t, a) {
   sprintf(
-    "Instructions: I would like you to classify journal articles by academic discipline and subdiscipline please, based only the article's title and abstract. If you don't know, answer 'NA'. Be concise, using a small number of words. If the article belongs to more than one category, separate each one with '|'. An example response would be 'psychology|reasoning|evaluation'. Another example response would be 'research methods|qualitative'. Your answer should be the category or categories, with no other text, no quotation marks, do not provide an explanation, and all lower case please. Use British naming conventions.\n\nTitle: %s\n\nAbstract: %s",
+    "Instructions: I would like you to classify journal articles by academic discipline and subdiscipline please, based only on the article's title and abstract. If you don't know, answer 'NA'. Be concise, using a small number of words. If the article belongs to more than one category, separate each one with '|'. An example response would be 'psychology|reasoning|evaluation'. Another example response would be 'research methods|qualitative'. Your answer should be the category or categories, with no other text, no quotation marks, do not provide an explanation, and all lower case please. Use British English naming conventions. The input is:\n\nTitle: %s\n\nAbstract: %s",
     t,
     a
   )
@@ -63,7 +63,7 @@ title_abstract_prompt <- function(t, a) {
 title_abstract_prompt(example_title, example_abstract) |> cat()
 ```
 
-BBC's Henry Cooke has written [a neat article](https://www.bbc.co.uk/rd/blog/2024-06-mitigating-llm-hallucinations-in-text-summarisation) on designing good prompts -- I read it after devising the mediocre prompt above. Such is life :-)
+BBC's Henry Cooke has written [a neat article](https://www.bbc.co.uk/rd/blog/2024-06-mitigating-llm-hallucinations-in-text-summarisation) on designing good prompts -- I read it after devising the mediocre prompt above by trial and error. Such is life :-)
 
 
 This function calls Ollama:
@@ -75,13 +75,10 @@ classify_paper <- Vectorize(function(t, a) {
 ```
 
 
-Do it for a selection of papers in the Scholar stash:
+Do it for all papers in the Scholar stash:
 
 ```{r}
-papers_to_analyse <- papers |>
-  dplyr::filter(abstract != "") |>
-  slice_head(n = 20)
-papers_to_analyse
+papers_to_analyse <- papers
 ```
 
 I'm using beepr to let me know when it's done:
@@ -99,19 +96,19 @@ Take a look:
 ```{r}
 result <- papers_to_analyse |>
   mutate(
-    short_title = str_trunc(title, 30),
-    res_simple = res,
-    res_simple = ifelse(res_simple == "NA", NA, res_simple)
+    res = ifelse(res == "na", NA, res)
   )
 result |>
-  select(short_title, res_simple)
+  mutate(title = str_trunc(title, 15),
+         res   = str_trunc(res, 45)) |>
+  select(title, res)
 ```
 
 
-Now I want to reshape things a bit, so the data is in tidy format:
+Now I want to reshape the data to tidy format:
 
 ```{r}
-wide_topics_mat <- result$res_simple |> str_split_fixed("\\|", n = Inf)
+wide_topics_mat <- result$res |> str_split_fixed("\\|", n = Inf)
 colnames(wide_topics_mat) <- paste0("t_",1:ncol(wide_topics_mat))
 wide_topics <- as_tibble(wide_topics_mat)
 wide_topics
@@ -126,17 +123,67 @@ res_topics <- bind_cols(result |> select(title), wide_topics) |>
     names_prefix = "t_",
     names_to = "topic_num"
   ) |>
-  dplyr::filter(class != "")
-res_topics
+  dplyr::filter(class != "") |>
+  mutate(class = as_factor(class))
+```
+
+
+Tidy up the levels a little:
+
+```{r}
+levels(res_topics$class) |> sort()
+```
+
+
+```{r}
+res_topics_clean <- res_topics |>
+  mutate(class = fct_recode(class,
+                             "mental health care" = "mhc",
+                             "mental health care" = "mhc (mental health care)",
+                             "HCI" = "human-computer interaction"))
+levels(res_topics_clean$class) |> sort()
+```
+
+
+```{r}
+res_topics_clean |>
+  mutate(title = str_trunc(title, 30)) |>
+  select(title, class)
 ```
 
 
 Summarise:
 
-```{r paged.print=FALSE}
-res_topics |>
+```{r}
+res_topics_clean |>
   group_by(class) |>
   tally() |>
-  arrange(desc(n)) |>
-  print(n = Inf)
+  arrange(desc(n))
 ```
+
+
+Lob it at a cluster analysis:
+
+```{r}
+res_topics_binary <- res_topics_clean |>
+  mutate(val = 1) |>
+  dplyr::select(-topic_num) |>
+  pivot_wider(names_from = "class",
+              values_from = val,
+              values_fill = 0)
+
+topics_mat <- res_topics_binary |>
+  dplyr::select(-title) |>
+  as.matrix()
+rownames(topics_mat) <- res_topics_binary$title |> str_trunc(20)
+```
+
+
+```{r fig.height=10, fig.width=10}
+dist_mat <- dist(topics_mat, method = "binary")
+hc <- hclust(dist_mat)
+plot(hc)
+```
+
+
+
