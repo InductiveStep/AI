@@ -1,6 +1,6 @@
 ---
 title: "Trying out Llama3.1 8B, using R and Ollama"
-author: "Andi Fugard"
+author: "Andi Fugard ([@andi@sciences.social](https://sciences.social/@andi))"
 date: "30 July 2024"
 output:
   html_notebook:
