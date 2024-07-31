@@ -3,10 +3,11 @@ title: "Trying out Llama3.1 8B, using R and Ollama"
 author: "Andi Fugard ([@andi@sciences.social](https://sciences.social/@andi))"
 date: "31 July 2024"
 output:
-  html_document:
-    df_print: paged
+  word_document: default
   html_notebook:
     code_folding: none
+  html_document:
+    df_print: paged
 ---
 
 
@@ -165,7 +166,7 @@ res_topics_clean |>
 
 Lob it at a cluster analysis:
 
-```{r fig.height=20, fig.width=10}
+```{r fig.height=15, fig.width=10, dpi=300}
 res_topics_binary <- res_topics_clean |>
   mutate(val = 1) |>
   dplyr::select(-topic_num) |>
