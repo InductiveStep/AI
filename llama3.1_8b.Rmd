@@ -3,10 +3,10 @@ title: "Trying out Llama3.1 8B, using R and Ollama"
 author: "Andi Fugard ([@andi@sciences.social](https://sciences.social/@andi))"
 date: "30 July 2024"
 output:
-  html_notebook:
-    code_folding: none
   html_document:
     df_print: paged
+  html_notebook:
+    code_folding: none
 ---
 
 
@@ -20,8 +20,8 @@ library(conflicted)
 library(ollamar)
 library(tictoc)
 library(scholar)
-library(tidyverse)
 library(beepr)
+library(tidyverse)
 ```
 
 Here are the models I currently have loaded on Ollama:
@@ -30,7 +30,7 @@ Here are the models I currently have loaded on Ollama:
 list_models()
 ```
 
-Grab data from Google Scholar (I'm using my own profile):
+Grab data from Google Scholar (I'm using my own profile). Note the caching here using RDS files, so that I'm not continually re-requesting the same data (get_publications does its own caching but I'm not sure how, so I've switched it off).
 
 ```{r}
 get_abs <- Vectorize(function(pid) {
@@ -38,19 +38,15 @@ get_abs <- Vectorize(function(pid) {
   paste(res, collapse = "\n")
 })
 
-papers <- get_publications("xrY7bFYAAAAJ") |>
-  mutate(abstract = get_abs(pubid))
+if (file.exists("scholar_stash.rds")) {
+  papers <- readRDS("scholar_stash.rds")
+} else {
+  papers <- get_publications("xrY7bFYAAAAJ", flush = TRUE) |>
+    mutate(abstract = get_abs(pubid))
+  saveRDS(papers, "scholar_stash.rds")
+}
 papers
 ```
-
-
-Here's an example to test out the prompt:
-
-```{r}
-example_title    <- "ChatGPT is bullshit"
-example_abstract <- "Recently, there has been considerable interest in large language models: machine learning systems which produce human-like text and dialogue. Applications of these systems have been plagued by persistent inaccuracies in their output; these are often called “AI hallucinations”. We argue that these falsehoods, and the overall activity of large language models, is better understood as bullshit in the sense explored by Frankfurt (On Bullshit, Princeton, 2005): the models are in an important way indifferent to the truth of their outputs. We distinguish two ways in which the models can be said to be bullshitters, and argue that they clearly meet at least one of these definitions. We further argue that describing AI misrepresentations as bullshit is both a more useful and more accurate way of predicting and discussing the behaviour of these systems."
-```
-
 
 ```{r}
 title_abstract_prompt <- function(t, a) {
@@ -60,7 +56,7 @@ title_abstract_prompt <- function(t, a) {
     a
   )
 }
-title_abstract_prompt(example_title, example_abstract) |> cat()
+title_abstract_prompt("Example title", "An example abstract") |> cat()
 ```
 
 BBC's Henry Cooke has written [a neat article](https://www.bbc.co.uk/rd/blog/2024-06-mitigating-llm-hallucinations-in-text-summarisation) on designing good prompts -- I read it after devising the mediocre prompt above by trial and error. Such is life :-)
@@ -75,18 +71,23 @@ classify_paper <- Vectorize(function(t, a) {
 ```
 
 
-Do it for all papers in the Scholar stash:
+Do it for all papers in the Scholar stash (when I was developing the code, I used this line to select two or three papers before running on all):
 
 ```{r}
 papers_to_analyse <- papers
 ```
 
-I'm using beepr to let me know when it's done:
+I'm using beepr to let me know when it's done (note I'm using caching again as this can take 1 to 2 minutes per paper):
 
 ```{r}
 tic()
-papers_to_analyse$res <- classify_paper(papers_to_analyse$title,
-                                        papers_to_analyse$abstract)
+if (file.exists("llama_out.rds")) {
+  papers_to_analyse <- readRDS("llama_out.rds")
+} else {
+  papers_to_analyse$res <- classify_paper(papers_to_analyse$title,
+                                          papers_to_analyse$abstract)
+  saveRDS(papers_to_analyse, "llama_out.rds")
+}
 toc()
 beep(2)
 ```
@@ -100,7 +101,7 @@ result <- papers_to_analyse |>
   )
 result |>
   mutate(title = str_trunc(title, 15),
-         res   = str_trunc(res, 45)) |>
+         res   = str_trunc(res, 60)) |>
   select(title, res)
 ```
 
@@ -164,7 +165,7 @@ res_topics_clean |>
 
 Lob it at a cluster analysis:
 
-```{r}
+```{r fig.height=20, fig.width=10}
 res_topics_binary <- res_topics_clean |>
   mutate(val = 1) |>
   dplyr::select(-topic_num) |>
@@ -175,15 +176,17 @@ res_topics_binary <- res_topics_clean |>
 topics_mat <- res_topics_binary |>
   dplyr::select(-title) |>
   as.matrix()
-rownames(topics_mat) <- res_topics_binary$title |> str_trunc(20)
-```
+rownames(topics_mat) <- res_topics_binary$title |> str_trunc(50)
 
-
-```{r fig.height=10, fig.width=10}
 dist_mat <- dist(topics_mat, method = "binary")
-hc <- hclust(dist_mat)
-plot(hc)
+hc <- hclust(dist_mat, method = "ward.D")
+
+old_par <- par(mar = c(2, 2, 2, 20))
+plot(hc |> as.dendrogram(), horiz = TRUE)
+par(old_par)
 ```
 
+
+This doesn't quite look the way I would have done it manually, e.g., I would have put "How people interpret conditions" alongside "A process model of..." and "Probabilistic theories of reasoning...". But it's not horrendous and impressive given that all I had to do was come up with a prompt.
 
 
