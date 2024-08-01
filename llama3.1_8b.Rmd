@@ -1,7 +1,7 @@
 ---
 title: "Trying out Llama3.1 8B, using R and Ollama"
 author: "Andi Fugard ([@andi@sciences.social](https://sciences.social/@andi))"
-date: "31 July 2024"
+date: "Last updated 1 August 2024"
 output:
   html_document:
     df_print: paged
@@ -185,12 +185,12 @@ rownames(topics_mat) <- res_topics_binary$title |> str_trunc(50)
 dist_mat <- dist(topics_mat, method = "binary")
 hc <- hclust(dist_mat, method = "ward.D")
 
-old_par <- par(mar = c(2, 2, 2, 20))
+old_par <- par(mar = c(2, 0, 0, 20))
 plot(hc |> as.dendrogram(), horiz = TRUE)
 par(old_par)
 ```
 
 
-This doesn't quite look the way I would have done it manually, e.g., I would have put "How people interpret conditions" alongside "A process model of..." and "Probabilistic theories of reasoning...". But it's not horrendous and impressive given that all I had to do was come up with a prompt.
+This doesn't quite look the way I would have done it manually, e.g., I would have put "How people interpret conditionals" alongside "A process model of..." and "Probabilistic theories of reasoning...". But it's not horrendous and impressive given that all I had to do was come up with a prompt.
 
 
