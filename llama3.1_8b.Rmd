@@ -3,11 +3,11 @@ title: "Trying out Llama3.1 8B, using R and Ollama"
 author: "Andi Fugard ([@andi@sciences.social](https://sciences.social/@andi))"
 date: "31 July 2024"
 output:
-  word_document: default
-  html_notebook:
-    code_folding: none
   html_document:
     df_print: paged
+  html_notebook:
+    code_folding: none
+  word_document: default
 ---
 
 
@@ -48,6 +48,9 @@ if (file.exists("scholar_stash.rds")) {
 }
 papers
 ```
+
+
+Here's the prompt:
 
 ```{r}
 title_abstract_prompt <- function(t, a) {
@@ -101,8 +104,8 @@ result <- papers_to_analyse |>
     res = ifelse(res == "na", NA, res)
   )
 result |>
-  mutate(title = str_trunc(title, 15),
-         res   = str_trunc(res, 60)) |>
+  mutate(title = str_trunc(title, 30),
+         res   = str_trunc(res, 30)) |>
   select(title, res)
 ```
 
