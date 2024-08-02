@@ -25,11 +25,36 @@ library(beepr)
 library(tidyverse)
 ```
 
+
+Check that Ollama is running:
+
+```{r}
+test_connection()
+```
+
+
+
 Here are the models I currently have loaded on Ollama:
 
 ```{r}
-list_models()
+llms <- list_models()
+llms
 ```
+
+
+Install the model we want if it isn't there (this took about 5 mins on my internet connection)...
+
+```{r}
+if (!"llama3.1:8b" %in% llms$name) {
+  tic()
+  ollamar::pull("llama3.1:8b", stream = FALSE)
+  toc()
+  beep(3)
+  llms <- list_models()
+  llms
+}
+```
+
 
 Grab data from Google Scholar (I'm using my own profile). Note the caching here using RDS files, so that I'm not continually re-requesting the same data (get_publications does its own caching but I'm not sure how, so I've switched it off).
 
