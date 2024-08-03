@@ -1,7 +1,7 @@
 ---
 title: "Trying out Llama3.1 8B, using R and Ollama"
 author: "Andi Fugard ([@andi@sciences.social](https://sciences.social/@andi))"
-date: "Last updated 1 August 2024"
+date: "Last updated 3 August 2024"
 output:
   html_document:
     df_print: paged
@@ -29,9 +29,8 @@ library(tidyverse)
 Check that Ollama is running:
 
 ```{r}
-test_connection()
+stopifnot(test_connection()$status_code == 200)
 ```
-
 
 
 Here are the models I currently have loaded on Ollama:
@@ -170,7 +169,8 @@ res_topics_clean <- res_topics |>
   mutate(class = fct_recode(class,
                              "mental health care" = "mhc",
                              "mental health care" = "mhc (mental health care)",
-                             "HCI" = "human-computer interaction"))
+                             "HCI" = "human-computer interaction",
+                             "logic" = "conditional logic"))
 levels(res_topics_clean$class) |> sort()
 ```
 
@@ -216,6 +216,7 @@ par(old_par)
 ```
 
 
-This doesn't quite look the way I would have done it manually, e.g., I would have put "How people interpret conditionals" alongside "A process model of..." and "Probabilistic theories of reasoning...". But it's not horrendous and impressive given that all I had to do was come up with a prompt.
+This doesn't quite look the way I would have done it manually, e.g., I would have put "How people interpret conditionals" alongside "A process model of the understanding of uncertain conditionals" and "Probabilistic theories of reasoning need pragmatics too". But it's not horrendous and impressive given that all I had to do was come up with a prompt.
+
 
 
